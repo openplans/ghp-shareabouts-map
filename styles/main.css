@@ -26,6 +26,9 @@ body {
    margin-top:15px;
    margin-bottom:15px;
    padding:0px;
+   height: 20em;
+   width: 60em;
+   overflow: hidden;
 }
 
 #shareabouts-container {
