@@ -56,8 +56,8 @@ var Shareabouts = Shareabouts || {};
       // has to pay for these. =)
       layers: [
         {
-          url: 'http://{s}.tiles.mapbox.com/v3/openplans.map-dmar86ym/{z}/{x}/{y}.png',
-          attribution: '&copy; OpenStreetMap contributors, CC-BY-SA. <a href="http://mapbox.com/about/maps" target="_blank">Terms &amp; Feedback</a>'
+          url: 'http://tile.stamen.com/toner-lite/<zoom>/<x>/<y>.png',
+          attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://creativecommons.org/licenses/by-sa/3.0">CC BY SA</a>.'
         }
       ],
       // TODO: Setup the conditions for how to display your markers. See
