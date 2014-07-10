@@ -18591,11 +18591,11 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
 
 }).call(this);
 
-/*global _, moment, BinaryFile, loadImage, EXIF */
+/*global _, moment, BinaryFile, loadImage, EXIF, jQuery */
 
 var Shareabouts = Shareabouts || {};
 
-(function(NS){
+(function(NS, $){
   'use strict';
 
   NS.Util = {
@@ -18630,11 +18630,26 @@ var Shareabouts = Shareabouts || {};
     },
 
     getAttrs: function($form) {
-      var attrs = {};
+      var attrs = {},
+          $checkedCheckboxes = $form.find('[type="checkbox"]:checked'),
+          $uncheckedCheckboxes = $form.find('[type="checkbox"]:not(:checked)');
 
       // Get values from the form
       _.each($form.serializeArray(), function(item) {
         attrs[item.name] = item.value;
+      });
+
+      // Handle check box values
+      $checkedCheckboxes.each(function(i, el) {
+        if (el.name) {
+          attrs[el.name] = true;
+        }
+      });
+
+      $uncheckedCheckboxes.each(function(i, el) {
+        if (el.name) {
+          attrs[el.name] = false;
+        }
       });
 
       return attrs;
@@ -18867,9 +18882,9 @@ var Shareabouts = Shareabouts || {};
       }
     }
   };
-}(Shareabouts));
+}(Shareabouts, jQuery));
 
-/*global window _ jQuery */
+/*global window, _, jQuery */
 
 var Shareabouts = Shareabouts || {};
 
@@ -18890,6 +18905,7 @@ var Shareabouts = Shareabouts || {};
     });
 
     var self = this;
+    this.options = options;
 
     this.login = function(service) {
       // NOTE:
@@ -18963,9 +18979,64 @@ var Shareabouts = Shareabouts || {};
       if (self.authWindow && !self.authWindow.closed) {
         self.authWindow.close();
       }
+      self.requestCurrentUserSession({
+        complete: function() {
+          self.bindEvents();
+        }
+      });
+    };
 
-      $.ajax({
-        url: options.apiRoot + 'users/current',
+    // ========================================
+    // User sessions
+
+    this.saveUserSession = function(data) {
+      // Take the user data and save it in a cookie. If
+      // there is no user data, assume that we should
+      // clear the user session.
+
+      if (data) {
+        NS.Util.cookies.save('user-id', data.id);
+        NS.Util.cookies.save('user-name', data.name);
+        NS.Util.cookies.save('user-username', data.username);
+        NS.Util.cookies.save('user-avatar-url', data.avatar_url);
+      } else {
+        this.clearUserSession();
+      }
+    };
+
+    this.getUserSession = function() {
+      // Load the user session from the cookies. If no
+      // user session data is present, return undefined.
+
+      var id = NS.Util.cookies.get('user-id');
+      if (id) {
+        return {
+          'id': id,
+          'name': NS.Util.cookies.get('user-name'),
+          'username': NS.Util.cookies.get('user-username'),
+          'avatar_url': NS.Util.cookies.get('user-avatar-url')
+        };
+      }
+    };
+
+    this.clearUserSession = function() {
+      // Clear the user session cookies.
+
+      NS.Util.cookies.destroy('user-id');
+      NS.Util.cookies.destroy('user-name');
+      NS.Util.cookies.destroy('user-username');
+      NS.Util.cookies.destroy('user-avatar-url');
+    };
+
+    this.requestCurrentUserSession = function(options) {
+      // Fetch the current user data from the API.
+
+      options = options || {};
+      var ajaxSuccess = options.success,
+          ajaxError = options.error;
+
+      $.ajax(_.extend({}, options, {
+        url: self.options.apiRoot + 'users/current',
         xhrFields: {
           withCredentials: true
         },
@@ -18977,16 +19048,61 @@ var Shareabouts = Shareabouts || {};
           // user's data.
           self.isAuthenticated = !!userData;
           self.userData = userData;
+          self.saveUserSession(userData);
 
           $(self).trigger('authsuccess', [userData]);
+          if (ajaxSuccess) { ajaxSuccess.apply(this, arguments); }
         },
-        error: function(jqXhr) {
+        error: function() {
           $(self).trigger('autherror');
-        },
-        complete: function() {
-          self.bindEvents();
+          if (ajaxError) { ajaxError.apply(this, arguments); }
         }
-      });
+      }));
+    };
+
+    this.requestNewUserSession = function(username, password, options) {
+      // Log a user in using their username and password,
+      // and store their data in the user session.
+      if (arguments.length === 1) { options = username; }
+
+      options = options || {};
+      var self = this,
+          ajaxError = options.error,
+          ajaxComplete = options.complete,
+          ajaxOptions = _.extend({}, options);
+
+      // If we omit the username and password, it's a logout request.
+      if (arguments.length === 1) {
+        ajaxOptions.type = 'DELETE';
+      } else {
+        ajaxOptions.type = 'POST';
+        ajaxOptions.data = JSON.stringify({'username': username, 'password': password});
+      }
+
+      // First, perform a request to log the user in.
+      $.ajax(_.extend(ajaxOptions, {
+        url: self.options.apiRoot + 'users/current',
+        contentType: 'application/json',
+        xhrFields: {withCredentials: true},
+
+        success: function() {
+          // This is going to be a CORS request, which doesn't allow redirects,
+          // so response will just be a string that is the URL for the user info.
+          // We now have to perform an additional request to get the actual user
+          // data.
+          self.requestCurrentUserSession(options);
+        },
+        error: function() {
+          $(self).trigger('autherror');
+          if (ajaxError) { ajaxError.apply(this, arguments); }
+        },
+        complete: function(jqXHR, status) {
+          // For a success case, we want to wait until we get the current
+          // user to run complete. For all other cases, run it immediately.
+          if (ajaxComplete && status === 'success') { return; }
+          ajaxComplete.apply(this, arguments);
+        }
+      }));
     };
   };
 }(Shareabouts, jQuery, Shareabouts.Util.console));
@@ -19514,6 +19630,10 @@ var Shareabouts = Shareabouts || {};
 
       if (!this.model) {
         this.model = new NS.PlaceModel();
+        // So we know how to make the model url to save.
+        this.model.collection = this.collection;
+      } else {
+        this.setGeometry(this.model.get('geometry'));
       }
 
       if (options.submitter) {
@@ -19554,22 +19674,40 @@ var Shareabouts = Shareabouts || {};
       // add loading/busy class
       this.$el.addClass('loading');
 
-      // So we know how to make the model url to save.
-      this.model.collection = this.collection;
       this.model.save(data, {
         wait: true,
         // Explicitly set this. IE9 forgets sometimes.
         crossDomain: true,
+        beforeSend: function ($xhr, options) {
+          var delim;
+          // Add custom headers
+          $xhr.setRequestHeader('X-Shareabouts-Silent', !!self.options.silent);
+
+          // Add 'include_invisible' so that we can nicely save invisible places,
+          // but only if the user says it's okay via the options.
+          if (self.options.include_invisible) {
+            delim = options.url.indexOf('?') !== -1 ? '&' : '?';
+            options.url = options.url + delim + 'include_invisible';
+          }
+        },
         success: function(evt) {
           // Cool, now add it to the collection.
-          self.collection.add(self.model);
+          if (!self.model.collection) {
+            self.collection.add(self.model);
+          }
 
           // Create is not a real event, but we want to know when a new thing
           // is saved.
           self.collection.trigger('create', self.model);
 
-          // Reset the form after it is saved successfully
-          self.ui.form.get(0).reset();
+          if (self.options.success) {
+            self.options.success.apply(self, arguments);
+          }
+        },
+        error: function() {
+          if (self.options.error) {
+            self.options.error.apply(self, arguments);
+          }
         },
         complete: function(evt) {
           // enable the submit button
@@ -19595,13 +19733,9 @@ var Shareabouts = Shareabouts || {};
       return this;
     },
     onClose: function() {
-      // ick
-      this.$el.parent().parent().parent().removeClass('panel-form-open');
       $(this.options.umbrella).trigger('closeplaceform', [this]);
     },
     onShow: function() {
-      // ick
-      this.$el.parent().parent().parent().addClass('panel-form-open');
       $(this.options.umbrella).trigger('showplaceform', [this]);
     }
   });
@@ -19685,6 +19819,10 @@ var Shareabouts = Shareabouts || {};
         // Explicitly set this. IE9 forgets sometimes.
         crossDomain: true,
         wait: true,
+        beforeSend: function ($xhr) {
+          // Add custom headers
+          $xhr.setRequestHeader('X-Shareabouts-Silent', !!self.options.silent);
+        },
         success: function(evt) {
           // Cool, now add it to the collection.
           self.collection.add(self.model);
@@ -19759,6 +19897,10 @@ var Shareabouts = Shareabouts || {};
           // Explicitly set this. IE9 forgets sometimes.
           crossDomain: true,
           wait: true,
+          beforeSend: function ($xhr) {
+            // Add custom headers
+            $xhr.setRequestHeader('X-Shareabouts-Silent', !!self.options.silent);
+          },
           // success: function() {
           //   S.Util.log('USER', 'place', 'successfully-support', self.collection.options.placeModel.getLoggingDetails());
           // },
@@ -19778,6 +19920,10 @@ var Shareabouts = Shareabouts || {};
           // Explicitly set this. IE9 forgets sometimes.
           crossDomain: true,
           wait: true,
+          beforeSend: function ($xhr) {
+            // Add custom headers
+            $xhr.setRequestHeader('X-Shareabouts-Silent', !!self.options.silent);
+          },
           // success: function() {
           //   S.Util.log('USER', 'place', 'successfully-unsupport', self.collection.options.placeModel.getLoggingDetails());
           // },
@@ -19836,7 +19982,7 @@ var Shareabouts = Shareabouts || {};
     var self = this,
         modelIdToLayerId = {},
         $el = $(options.el),
-        map, layoutHtml, i, layerOptions, panelLayout;
+        layoutHtml, i, layerOptions, panelLayout;
 
     // For CORS in IE9 and below, we need to POST our requests and tell
     // the Shareabouts API what method to actually use in the header.
@@ -19876,10 +20022,10 @@ var Shareabouts = Shareabouts || {};
     panelLayout = new NS.PanelLayout({el: $el.find('.shareabouts-panel').get(0)});
 
     // Init the map
-    map = L.map($el.find('.shareabouts-map').get(0), options.map);
+    this.map = L.map($el.find('.shareabouts-map').get(0), options.map);
     for (i = 0; i < options.layers.length; ++i) {
       layerOptions = options.layers[i];
-      L.tileLayer(layerOptions.url, layerOptions).addTo(map);
+      L.tileLayer(layerOptions.url, layerOptions).addTo(this.map);
     }
 
     // Init the place collection
@@ -19906,11 +20052,11 @@ var Shareabouts = Shareabouts || {};
     }).on('layeradd', function(evt) {
       // Map model ids to leaflet layer ids
       modelIdToLayerId[evt.layer.feature.properties.id] = evt.layer._leaflet_id;
-    }).addTo(map);
+    }).addTo(this.map);
 
     // Listen for map moves, and update the geometry on the place form view
     // if it is open.
-    map.on('dragend', function(evt) {
+    this.map.on('dragend', function(evt) {
       var center = evt.target.getCenter();
 
       if (self.placeFormView) {
@@ -19945,7 +20091,7 @@ var Shareabouts = Shareabouts || {};
 
       // Pan the map to the selected layer
       // TODO: handle non-point geometries
-      map.panTo(evt.layer.getLatLng());
+      self.map.panTo(evt.layer.getLatLng());
     });
 
     // Listen for when a place is shown
@@ -19966,6 +20112,16 @@ var Shareabouts = Shareabouts || {};
       unfocusLayer(layer, styleRule);
     });
 
+    // Listen for when a form is shown
+    $(this).on('showplaceform', function(evt, view) {
+      view.$el.parent().parent().parent().addClass('panel-form-open');
+    });
+
+    // Listen for when a form is hidden
+    $(this).on('closeplaceform', function(evt, view) {
+      view.$el.parent().parent().parent().removeClass('panel-form-open');
+    });
+
     // Init add button object
     $el.on('click', '.shareabouts-add-button', function(evt) {
       evt.preventDefault();
@@ -19984,7 +20140,7 @@ var Shareabouts = Shareabouts || {};
 
     // Tell the map to resize itself when its container changes width
     $el.on('showpanel closepanel', function() {
-      map.invalidateSize(true);
+      self.map.invalidateSize(true);
     });
 
     this.setUser = function(userData) {
