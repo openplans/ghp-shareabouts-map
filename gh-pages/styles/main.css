@@ -1,4 +1,7 @@
 /* NOTE: use these selectors to style invalid form elements on non-HTML5 browsers */
+
+/* line 4, ../../app/styles/main.scss */
+
 .form-submitted input:invalid,
 .form-submitted textarea:invalid,
 .form-submitted select:invalid {
@@ -9,6 +12,8 @@
    have an explicit width and a fluid height. An explicit height
    must be set within a media query. */
 
+/* line 12, ../../app/styles/main.scss */
+
 #shareabouts-container {
   width: 100%;
   margin: 0 auto;
@@ -16,11 +21,15 @@
   position: relative;
 }
 
+/* line 19, ../../app/styles/main.scss */
+
 .shareabouts-add-button-container {
   left: 0;
   bottom: 0;
   margin-left: 0;
 }
+
+/* line 25, ../../app/styles/main.scss */
 
 .shareabouts-add-button {
   width: 100%;
@@ -28,61 +37,85 @@
   padding-right: 0;
 }
 
+/* line 31, ../../app/styles/main.scss */
+
 .panel-open .shareabouts-add-button-container {
   display: none;
 }
 
-.shareabouts-auth-button {}
+/* line 36, ../../app/styles/main.scss */
+
 .shareabouts-auth-avatar {
   display: block;
   width: 50px;
 }
 
+/* line 41, ../../app/styles/main.scss */
+
 .shareabouts-geometry-set .form-instructions {
   display: none;
 }
+
+/* line 45, ../../app/styles/main.scss */
 
 .survey-items {
   list-style: none;
   margin-left: 0;
 }
 
+/* line 50, ../../app/styles/main.scss */
+
 .survey-items .avatar {
   height: 25px;
   width: 25px;
 }
+
+/* line 55, ../../app/styles/main.scss */
 
 .avatar {
   height: 50px;
   width: 50px;
 }
 
+/* line 60, ../../app/styles/main.scss */
+
 textarea {
   height: 100px;
 }
+
+/* line 64, ../../app/styles/main.scss */
 
 .browsehappy {
   margin-bottom: 0;
 }
 
 @media only screen and (min-width: 40.063em) {
+  /* line 70, ../../app/styles/main.scss */
 
   #shareabouts-container {
     height: 600px;
   }
 
+  /* line 74, ../../app/styles/main.scss */
+
   .shareabouts-add-button-container {
     left: 1.5em;
   }
+
+  /* line 78, ../../app/styles/main.scss */
 
   .shareabouts-add-button {
     padding-left: 2em;
     padding-right: 2em;
   }
 
+  /* line 83, ../../app/styles/main.scss */
+
   .panel-open .shareabouts-add-button-container {
     display: block;
   }
+
+  /* line 87, ../../app/styles/main.scss */
 
   .row.full-width {
     width: 100%;
