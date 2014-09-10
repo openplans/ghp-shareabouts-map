@@ -83,7 +83,7 @@ var Shareabouts = Shareabouts || {};
 
       // TODO: Update this url to your dataset. THIS IS VERY IMPORTANT.
       // Now you're done!
-      datasetUrl: 'http://data.shareabouts.org/api/v2/ecocamp/datasets/sunglow/places',
+      datasetUrl: 'http://data.shareabouts.org/api/v2/ecocamp/datasets/outer-space/places',
 
       // These are template functions that expect geojson.
       templates: {
